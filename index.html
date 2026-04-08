@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Tag Game</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #1a1a2e; display: flex; align-items: center; justify-content: center; min-height: 100vh; font-family: sans-serif; }
+#game-wrap { display: flex; flex-direction: column; align-items: center; padding: 1rem 0; width: 100%; max-width: 760px; }
+#header { display: flex; align-items: center; justify-content: space-between; width: 100%; max-width: 720px; margin-bottom: 10px; gap: 10px; }
+.score-card { flex: 1; border-radius: 12px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.08); padding: 8px 12px; text-align: center; }
+.score-label { font-size: 11px; color: rgba(255,255,255,0.6); margin-bottom: 1px; }
+.score-val { font-size: 22px; font-weight: 700; }
+.p1c { color: #5BC8FF; } .p2c { color: #FF7A5C; }
+#it-banner { font-size: 12px; font-weight: 600; padding: 5px 14px; border-radius: 8px; background: rgba(255,200,50,0.2); color: #FFD04A; white-space: nowrap; text-align: center; min-width: 110px; border: 1px solid rgba(255,200,50,0.3); }
+#arena { position: relative; width: 100%; max-width: 720px; height: 440px; border-radius: 14px; overflow: hidden; border: 2px solid rgba(255,255,255,0.1); }
+#overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; z-index: 20; background: rgba(0,0,0,0.35); border-radius: 12px; }
+#overlay-title { font-size: 32px; font-weight: 800; color: #fff; text-shadow: 0 2px 10px rgba(0,0,0,0.6); }
+#overlay-sub { font-size: 13px; color: rgba(255,255,255,0.8); }
+#bottom { display: flex; align-items: center; justify-content: space-between; width: 100%; max-width: 720px; margin-top: 8px; gap: 10px; }
+#timer-wrap { font-size: 13px; color: rgba(255,255,255,0.5); }
+#timer { font-size: 22px; font-weight: 700; color: #fff; }
+#start-btn { padding: 8px 24px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.25); background: rgba(255,255,255,0.1); font-size: 13px; cursor: pointer; font-weight: 600; color: #fff; }
+#start-btn:hover { background: rgba(255,255,255,0.18); }
+#controls { display: flex; gap: 16px; margin-top: 8px; font-size: 12px; color: rgba(255,255,255,0.5); max-width: 720px; width: 100%; justify-content: space-between; flex-wrap: wrap; }
+.ctrl-group { display: flex; flex-direction: column; gap: 2px; }
+.ctrl-title { font-weight: 600; font-size: 12px; margin-bottom: 1px; }
+.ctrl-row { display: flex; align-items: center; gap: 4px; }
+.key { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; padding: 0 5px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.08); font-size: 10px; font-weight: 600; color: #fff; }
+</style>
+</head>
+<body>
+<div id="game-wrap">
+  <div id="header">
+    <div class="score-card">
+      <div class="score-label">Player 1 — Blue</div>
+      <div class="score-val p1c" id="score1">0</div>
+      <div style="font-size:10px;color:rgba(255,255,255,0.35)">tags given</div>
+    </div>
+    <div id="it-banner">— is IT</div>
+    <div class="score-card">
+      <div class="score-label">Player 2 — Red</div>
+      <div class="score-val p2c" id="score2">0</div>
+      <div style="font-size:10px;color:rgba(255,255,255,0.35)">tags given</div>
+    </div>
+  </div>
+
+  <div id="arena">
+    <div id="overlay">
+      <div id="overlay-title">Tag!</div>
+      <div id="overlay-sub">Press Start to play</div>
+    </div>
+    <canvas id="canvas"></canvas>
+  </div>
+
+  <div id="controls">
+    <div class="ctrl-group">
+      <div class="ctrl-title" style="color:#5BC8FF">Player 1 — Blue</div>
+      <div class="ctrl-row"><span class="key">A</span><span class="key">D</span> move &nbsp; <span class="key">W</span> jump</div>
+    </div>
+    <div style="font-size:11px;color:rgba(255,255,255,0.35);align-self:center">Hit bounce pads to fly!</div>
+    <div class="ctrl-group" style="align-items:flex-end">
+      <div class="ctrl-title" style="color:#FF7A5C">Player 2 — Red</div>
+      <div class="ctrl-row"><span class="key">←</span><span class="key">→</span> move &nbsp; <span class="key">↑</span> jump</div>
+    </div>
+  </div>
+
+  <div id="bottom">
+    <div id="timer-wrap">Time: <span id="timer">60</span>s</div>
+    <button id="start-btn">Start Game</button>
+    <div style="width:80px"></div>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const arena = document.getElementById('arena');
+const itBanner = document.getElementById('it-banner');
+const score1el = document.getElementById('score1');
+const score2el = document.getElementById('score2');
+const timerEl = document.getElementById('timer');
+const overlay = document.getElementById('overlay');
+const overlayTitle = document.getElementById('overlay-title');
+const overlaySub = document.getElementById('overlay-sub');
+const startBtn = document.getElementById('start-btn');
+
+const GRAVITY = 0.45, JUMP_V = -11.5, BOUNCE_V = -17, SPEED = 3.4, R = 14, GAME_SECS = 60;
+let W, H, keys = {}, raf, timerInt, state;
+
+function resize() {
+  W = arena.clientWidth; H = arena.clientHeight;
+  canvas.width = W; canvas.height = H;
+}
+
+// Platforms: {x, y, w, h} as fractions — modeled after the reference screenshot
+// Multiple tiers: high, mid-high, mid, low-mid, floor-level
+const PLATFORMS = [
+  // Tall top-center platform (like the wide top one in screenshot)
+  {x: 0.25, y: 0.18, w: 0.50, h: 0.048},
+  // Mid-left
+  {x: 0.03, y: 0.38, w: 0.28, h: 0.048},
+  // Mid-right
+  {x: 0.69, y: 0.38, w: 0.28, h: 0.048},
+  // Center mid (slightly lower)
+  {x: 0.34, y: 0.50, w: 0.32, h: 0.048},
+  // Lower left
+  {x: 0.04, y: 0.63, w: 0.22, h: 0.048},
+  // Lower right
+  {x: 0.74, y: 0.63, w: 0.22, h: 0.048},
+  // Bottom center-left
+  {x: 0.20, y: 0.77, w: 0.26, h: 0.048},
+  // Bottom center-right
+  {x: 0.54, y: 0.77, w: 0.26, h: 0.048},
+];
+
+// Pillar supports beneath each platform (visual only)
+const PILLARS = [
+  {x: 0.34, y: 0.18, w: 0.05, platform: 0},
+  {x: 0.61, y: 0.18, w: 0.05, platform: 0},
+  {x: 0.10, y: 0.38, w: 0.05, platform: 1},
+  {x: 0.23, y: 0.38, w: 0.05, platform: 1},
+  {x: 0.74, y: 0.38, w: 0.05, platform: 2},
+  {x: 0.88, y: 0.38, w: 0.05, platform: 2},
+  {x: 0.40, y: 0.50, w: 0.05, platform: 3},
+  {x: 0.58, y: 0.50, w: 0.05, platform: 3},
+  {x: 0.09, y: 0.63, w: 0.04, platform: 4},
+  {x: 0.20, y: 0.63, w: 0.04, platform: 4},
+  {x: 0.78, y: 0.63, w: 0.04, platform: 5},
+  {x: 0.88, y: 0.63, w: 0.04, platform: 5},
+];
+
+// Bounce pads — placed at natural gaps/ends so players can reach upper platforms
+const BOUNCE_PADS = [
+  {x: 0.46, y: 0.955, w: 0.08},   // center floor — sends up to top
+  {x: 0.12, y: 0.955, w: 0.07},   // left floor — sends up left
+  {x: 0.81, y: 0.955, w: 0.07},   // right floor
+  {x: 0.57, y: 0.505, w: 0.07},   // edge of center mid platform — to reach top
+  {x: 0.27, y: 0.635, w: 0.07},   // between lower platforms
+  {x: 0.65, y: 0.635, w: 0.07},   // right side mid
+];
+
+function getPlatforms() {
+  return PLATFORMS.map(p => ({x: p.x*W, y: p.y*H, w: p.w*W, h: p.h*H}));
+}
+function getBouncePads() {
+  return BOUNCE_PADS.map(p => ({x: p.x*W, y: p.y*H, w: p.w*W, h: 10}));
+}
+
+function makePlayer(x, y, it) {
+  return { x, y, vx: 0, vy: 0, onGround: false, it, jumpCooldown: 0, bounceAnim: 0 };
+}
+
+function resetState() {
+  resize();
+  state = {
+    running: false,
+    p1: makePlayer(W*0.15, H*0.5, false),
+    p2: makePlayer(W*0.85, H*0.5, true),
+    it: 2,
+    score1: 0, score2: 0,
+    timeLeft: GAME_SECS, lastTag: 0,
+    bouncePadAnims: BOUNCE_PADS.map(() => 0)
+  };
+}
+
+function updateBanner() {
+  const name = state.it === 1 ? 'Player 1' : 'Player 2';
+  const col = state.it === 1 ? '#5BC8FF' : '#FF7A5C';
+  itBanner.textContent = name + ' is IT';
+  itBanner.style.color = col;
+}
+function updateScores() { score1el.textContent = state.score1; score2el.textContent = state.score2; }
+
+function applyPhysics(p, moveLeft, moveRight, doJump) {
+  const platforms = getPlatforms();
+  const bouncePads = getBouncePads();
+  const FLOOR = H - R - 2;
+
+  if (moveLeft) p.vx = -SPEED;
+  else if (moveRight) p.vx = SPEED;
+  else p.vx *= 0.72;
+
+  p.vy += GRAVITY;
+  p.x += p.vx;
+  p.y += p.vy;
+
+  p.x = Math.max(R, Math.min(W - R, p.x));
+  p.onGround = false;
+
+  if (p.y >= FLOOR) {
+    p.y = FLOOR; p.vy = 0; p.onGround = true;
+  }
+
+  for (const pl of platforms) {
+    const prevY = p.y - p.vy;
+    if (p.x + R > pl.x && p.x - R < pl.x + pl.w) {
+      if (prevY + R <= pl.y + 2 && p.y + R >= pl.y) {
+        p.y = pl.y - R; p.vy = 0; p.onGround = true;
+      } else if (prevY - R >= pl.y + pl.h - 2 && p.y - R <= pl.y + pl.h) {
+        p.y = pl.y + pl.h + R; p.vy = Math.abs(p.vy) * 0.3;
+      }
+    }
+  }
+
+  for (let i = 0; i < bouncePads.length; i++) {
+    const bp = bouncePads[i];
+    const prevY = p.y - p.vy;
+    if (p.x + R > bp.x && p.x - R < bp.x + bp.w) {
+      if (prevY + R <= bp.y + 6 && p.y + R >= bp.y) {
+        p.y = bp.y - R; p.vy = BOUNCE_V; p.onGround = false;
+        p.bounceAnim = 12;
+        state.bouncePadAnims[i] = 12;
+      }
+    }
+  }
+
+  if (doJump && p.onGround && p.jumpCooldown <= 0) {
+    p.vy = JUMP_V; p.onGround = false; p.jumpCooldown = 18;
+  }
+  if (p.jumpCooldown > 0) p.jumpCooldown--;
+  if (p.bounceAnim > 0) p.bounceAnim--;
+  for (let i = 0; i < state.bouncePadAnims.length; i++) { if (state.bouncePadAnims[i] > 0) state.bouncePadAnims[i]--; }
+}
+
+function checkTag() {
+  const dist = Math.hypot(state.p1.x - state.p2.x, state.p1.y - state.p2.y);
+  const now = Date.now();
+  if (dist < R * 2.2 && now - state.lastTag > 700) {
+    if (state.it === 1) { state.score1++; state.it = 2; state.p1.it = false; state.p2.it = true; }
+    else { state.score2++; state.it = 1; state.p2.it = false; state.p1.it = true; }
+    state.lastTag = now;
+    updateBanner(); updateScores();
+  }
+}
+
+// Draw a platform with green top + pink body + optional pillar, like the reference
+function drawPlatform(x, y, w, h) {
+  const grassH = Math.max(5, h * 0.38);
+  const bodyH = h - grassH;
+
+  // Body (magenta/pink)
+  ctx.fillStyle = '#E8336A';
+  ctx.beginPath();
+  roundRect(ctx, x, y + grassH, w, bodyH, [0, 0, 5, 5]);
+  ctx.fill();
+
+  // Grass top (green)
+  ctx.fillStyle = '#5DC93A';
+  ctx.beginPath();
+  roundRect(ctx, x, y, w, grassH + 3, [5, 5, 0, 0]);
+  ctx.fill();
+
+  // Grass highlight strip
+  ctx.fillStyle = '#7EE654';
+  ctx.fillRect(x + 6, y + 2, w - 12, 3);
+
+  // Subtle texture bumps on grass edge
+  ctx.fillStyle = '#4BAE2A';
+  for (let bx = x + 10; bx < x + w - 10; bx += 18) {
+    ctx.beginPath();
+    ctx.arc(bx, y + grassH, 4, Math.PI, 0);
+    ctx.fill();
+  }
+}
+
+function drawPillar(x, y, w, fromY) {
+  // Pillars hang from undersides of platforms down to wherever looks natural
+  const pillarH = Math.min(H * 0.28, H - fromY - 20);
+  ctx.fillStyle = '#7B9FD4';
+  ctx.fillRect(x, fromY, w, pillarH);
+  // Pillar shading
+  ctx.fillStyle = '#6A8CBD';
+  ctx.fillRect(x, fromY, 3, pillarH);
+  ctx.fillStyle = '#8CAEE0';
+  ctx.fillRect(x + w - 3, fromY, 3, pillarH);
+}
+
+function roundRect(ctx, x, y, w, h, radii) {
+  const [tl, tr, br, bl] = Array.isArray(radii) ? radii : [radii, radii, radii, radii];
+  ctx.moveTo(x + tl, y);
+  ctx.lineTo(x + w - tr, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + tr);
+  ctx.lineTo(x + w, y + h - br);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - br, y + h);
+  ctx.lineTo(x + bl, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - bl);
+  ctx.lineTo(x, y + tl);
+  ctx.quadraticCurveTo(x, y, x + tl, y);
+  ctx.closePath();
+}
+
+function drawBackground() {
+  // Sky gradient layers — flat colors for perf
+  // Far background: darker blue silhouettes (like the pillars/arches in screenshot)
+  ctx.fillStyle = '#4E9FD4';
+  // Draw some background arch shapes
+  const arches = [
+    {x: 0.02, y: 0.25, w: 0.13, h: 0.65},
+    {x: 0.18, y: 0.32, w: 0.12, h: 0.58},
+    {x: 0.62, y: 0.28, w: 0.13, h: 0.62},
+    {x: 0.78, y: 0.22, w: 0.12, h: 0.68},
+  ];
+  ctx.fillStyle = '#4E9FD4';
+  for (const a of arches) {
+    const ax = a.x * W, ay = a.y * H, aw = a.w * W, ah = a.h * H;
+    // Arch: rectangle with rounded top
+    ctx.beginPath();
+    ctx.rect(ax, ay + aw/2, aw, ah);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(ax + aw/2, ay + aw/2, aw/2, Math.PI, 0);
+    ctx.fill();
+  }
+
+  // Background hills / blobs
+  ctx.fillStyle = '#57A8DC';
+  const hills = [{x:0.08,y:0.72,r:0.07},{x:0.55,y:0.68,r:0.06},{x:0.92,y:0.74,r:0.05}];
+  for (const h2 of hills) {
+    ctx.beginPath();
+    ctx.arc(h2.x*W, h2.y*H, h2.r*W, Math.PI, 0);
+    ctx.fill();
+  }
+
+  // Background trees (simple circles on sticks)
+  const trees = [
+    {x:0.38, y:0.08, cr:0.05, col:'#5DC93A', trunk:'#C0406A'},
+    {x:0.58, y:0.05, cr:0.038, col:'#4BAE2A', trunk:'#C0406A'},
+    {x:0.85, y:0.10, cr:0.04, col:'#5DC93A', trunk:'#C0406A'},
+  ];
+  for (const t of trees) {
+    const tx = t.x*W, ty = t.y*H, tr2 = t.cr*W;
+    ctx.fillStyle = t.trunk;
+    ctx.fillRect(tx - 4, ty + tr2 - 5, 8, H*0.10);
+    ctx.fillStyle = t.col;
+    ctx.beginPath();
+    ctx.arc(tx, ty, tr2, 0, Math.PI*2);
+    ctx.fill();
+  }
+
+  // Floor line
+  ctx.fillStyle = '#5DC93A';
+  ctx.fillRect(0, H - 14, W, 14);
+  ctx.fillStyle = '#7EE654';
+  ctx.fillRect(0, H - 14, W, 4);
+  ctx.fillStyle = '#E8336A';
+  ctx.fillRect(0, H - 8, W, 8);
+}
+
+function drawBouncePad(bp, anim) {
+  const squeeze = anim > 0 ? 1 - (anim / 12) * 0.28 : 1;
+  ctx.save();
+  ctx.translate(bp.x + bp.w / 2, bp.y + 5);
+  ctx.scale(1, squeeze);
+
+  // Spring coil base
+  ctx.fillStyle = '#E8336A';
+  ctx.fillRect(-bp.w/2, -3, bp.w, 9);
+
+  // Pad top
+  ctx.fillStyle = '#FFD04A';
+  ctx.beginPath();
+  roundRect(ctx, -bp.w/2, -9, bp.w, 8, 4);
+  ctx.fill();
+  ctx.fillStyle = '#FFE57A';
+  ctx.fillRect(-bp.w/2 + 4, -8, bp.w - 8, 3);
+
+  ctx.restore();
+
+  // Label
+  ctx.fillStyle = '#FFD04A';
+  ctx.font = 'bold 8px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('BOUNCE', bp.x + bp.w/2, bp.y + 22);
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  // Sky background
+  ctx.fillStyle = '#5BB8E8';
+  ctx.fillRect(0, 0, W, H);
+
+  drawBackground();
+
+  const platforms = getPlatforms();
+  const bouncePads = getBouncePads();
+
+  // Draw pillars first (behind platforms)
+  for (const pil of PILLARS) {
+    const pidx = pil.platform;
+    const plat = platforms[pidx];
+    if (!plat) continue;
+    const px = pil.x * W, pw = pil.w * W;
+    drawPillar(px, plat.y + plat.h, pw, plat.y + plat.h);
+  }
+
+  // Draw platforms
+  for (const pl of platforms) {
+    drawPlatform(pl.x, pl.y, pl.w, pl.h);
+  }
+
+  // Bounce pads
+  for (let i = 0; i < bouncePads.length; i++) {
+    drawBouncePad(bouncePads[i], state.bouncePadAnims[i]);
+  }
+
+  // Players
+  function drawPlayer(p, col, label) {
+    const isIt = (label === 'P1' && state.it === 1) || (label === 'P2' && state.it === 2);
+    const squash = p.onGround ? 1.15 : (p.vy < -4 ? 0.82 : 1);
+    const stretch = p.onGround ? 0.87 : (p.vy < -4 ? 1.22 : 1);
+
+    ctx.save();
+    ctx.translate(p.x, p.y);
+
+    if (isIt) {
+      // IT glow ring
+      ctx.beginPath();
+      ctx.arc(0, 0, R + 6, 0, Math.PI * 2);
+      ctx.strokeStyle = '#FFD04A';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      // IT tag above
+      ctx.font = 'bold 8px sans-serif';
+      ctx.fillStyle = '#FFD04A';
+      ctx.textAlign = 'center';
+      ctx.fillText('IT', 0, -R - 9);
+    }
+
+    ctx.scale(squash, stretch);
+
+    // Body
+    ctx.beginPath();
+    ctx.arc(0, 0, R, 0, Math.PI * 2);
+    ctx.fillStyle = col;
+    ctx.fill();
+
+    // Face — hat (triangle notch at top)
+    ctx.fillStyle = '#1a1a2e';
+    ctx.beginPath();
+    ctx.moveTo(-5, -R + 3);
+    ctx.lineTo(0, -R - 5);
+    ctx.lineTo(5, -R + 3);
+    ctx.closePath();
+    ctx.fill();
+
+    // Eyes
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(-4, -2, 3.5, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(4, -2, 3.5, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#1a1a2e';
+    ctx.beginPath(); ctx.arc(-4, -2, 2, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(4, -2, 2, 0, Math.PI*2); ctx.fill();
+
+    // Beard
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(0, 5, 6, 0, Math.PI);
+    ctx.fill();
+
+    // Colored headband
+    ctx.strokeStyle = col === '#4A9EE8' ? '#5BC8FF' : '#FF7A5C';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(0, 0, R - 1, Math.PI * 0.85, Math.PI * 0.15);
+    ctx.stroke();
+
+    // Bounce sparkles
+    if (p.bounceAnim > 0) {
+      for (let s = 0; s < 4; s++) {
+        const angle = (s / 4) * Math.PI * 2 + (p.bounceAnim * 0.35);
+        const d = R + 10 + (12 - p.bounceAnim);
+        ctx.fillStyle = `rgba(255,208,74,${p.bounceAnim/12})`;
+        ctx.beginPath();
+        ctx.arc(Math.cos(angle)*d, Math.sin(angle)*d, 3, 0, Math.PI*2);
+        ctx.fill();
+      }
+    }
+
+    ctx.restore();
+  }
+
+  drawPlayer(state.p1, '#4A9EE8', 'P1');
+  drawPlayer(state.p2, '#E85A3A', 'P2');
+
+  // Low-time warning overlay
+  if (state.timeLeft <= 10 && state.running) {
+    ctx.fillStyle = 'rgba(200,50,50,0.12)';
+    ctx.fillRect(0, 0, W, H);
+  }
+}
+
+function loop() {
+  if (!state.running) return;
+  applyPhysics(state.p1, keys['a']||keys['A'], keys['d']||keys['D'], keys['w']||keys['W']);
+  applyPhysics(state.p2, keys['ArrowLeft'], keys['ArrowRight'], keys['ArrowUp']);
+  checkTag();
+  draw();
+  raf = requestAnimationFrame(loop);
+}
+
+function startGame() {
+  cancelAnimationFrame(raf);
+  clearInterval(timerInt);
+  resize();
+  state = {
+    running: true,
+    p1: makePlayer(W*0.12, H*0.4, false),
+    p2: makePlayer(W*0.85, H*0.4, true),
+    it: 2,
+    score1: 0, score2: 0,
+    timeLeft: GAME_SECS, lastTag: 0,
+    bouncePadAnims: BOUNCE_PADS.map(() => 0)
+  };
+  updateBanner(); updateScores();
+  overlay.style.display = 'none';
+  startBtn.textContent = 'Restart';
+  timerEl.textContent = GAME_SECS;
+  timerInt = setInterval(() => {
+    state.timeLeft--;
+    timerEl.textContent = state.timeLeft;
+    if (state.timeLeft <= 0) endGame();
+  }, 1000);
+  raf = requestAnimationFrame(loop);
+}
+
+function endGame() {
+  state.running = false;
+  clearInterval(timerInt);
+  cancelAnimationFrame(raf);
+  draw();
+  overlay.style.display = 'flex';
+  if (state.score1 > state.score2) {
+    overlayTitle.textContent = 'Player 1 Wins!';
+    overlayTitle.style.color = '#5BC8FF';
+  } else if (state.score2 > state.score1) {
+    overlayTitle.textContent = 'Player 2 Wins!';
+    overlayTitle.style.color = '#FF7A5C';
+  } else {
+    overlayTitle.textContent = "It's a Tie!";
+    overlayTitle.style.color = '#FFD04A';
+  }
+  overlaySub.textContent = `P1: ${state.score1} tags  |  P2: ${state.score2} tags — Press Restart`;
+}
+
+document.addEventListener('keydown', e => {
+  keys[e.key] = true;
+  if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key)) e.preventDefault();
+});
+document.addEventListener('keyup', e => { keys[e.key] = false; });
+startBtn.addEventListener('click', startGame);
+window.addEventListener('resize', () => { resize(); draw(); });
+
+resize();
+resetState();
+draw();
+</script>
+</body>
+</html>
