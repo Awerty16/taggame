@@ -1,0 +1,383 @@
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+#game-wrap { display: flex; flex-direction: column; align-items: center; padding: 1rem 0; font-family: var(--font-sans); }
+#header { display: flex; align-items: center; justify-content: space-between; width: 100%; max-width: 720px; margin-bottom: 10px; gap: 10px; }
+.score-card { flex: 1; border-radius: var(--border-radius-lg); border: 0.5px solid var(--color-border-tertiary); background: var(--color-background-secondary); padding: 8px 12px; text-align: center; }
+.score-label { font-size: 11px; color: var(--color-text-secondary); margin-bottom: 1px; }
+.score-val { font-size: 22px; font-weight: 500; }
+.p1c { color: #185FA5; } .p2c { color: #993C1D; }
+#it-banner { font-size: 12px; font-weight: 500; padding: 5px 14px; border-radius: var(--border-radius-md); background: var(--color-background-warning); color: var(--color-text-warning); white-space: nowrap; text-align: center; min-width: 110px; }
+#arena { position: relative; width: 100%; max-width: 720px; height: 420px; border-radius: var(--border-radius-lg); border: 0.5px solid var(--color-border-secondary); background: var(--color-background-secondary); overflow: hidden; }
+#overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; z-index: 20; background: rgba(0,0,0,0.22); border-radius: var(--border-radius-lg); }
+#overlay-title { font-size: 28px; font-weight: 500; color: #fff; text-shadow: 0 1px 6px rgba(0,0,0,0.5); }
+#overlay-sub { font-size: 13px; color: rgba(255,255,255,0.85); }
+#bottom { display: flex; align-items: center; justify-content: space-between; width: 100%; max-width: 720px; margin-top: 8px; gap: 10px; }
+#timer-wrap { font-size: 13px; color: var(--color-text-secondary); } #timer { font-size: 20px; font-weight: 500; color: var(--color-text-primary); }
+#start-btn { padding: 7px 22px; border-radius: var(--border-radius-md); border: 0.5px solid var(--color-border-secondary); background: var(--color-background-primary); font-size: 13px; cursor: pointer; font-weight: 500; color: var(--color-text-primary); }
+#start-btn:hover { background: var(--color-background-secondary); }
+#controls { display: flex; gap: 16px; margin-top: 8px; font-size: 12px; color: var(--color-text-secondary); max-width: 720px; width: 100%; justify-content: space-between; flex-wrap: wrap; }
+.ctrl-group { display: flex; flex-direction: column; gap: 2px; }
+.ctrl-title { font-weight: 500; color: var(--color-text-primary); font-size: 12px; margin-bottom: 1px; }
+.ctrl-row { display: flex; align-items: center; gap: 4px; }
+.key { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; padding: 0 4px; border-radius: 3px; border: 0.5px solid var(--color-border-secondary); background: var(--color-background-primary); font-size: 10px; font-weight: 500; }
+</style>
+
+<div id="game-wrap">
+  <div id="header">
+    <div class="score-card">
+      <div class="score-label">Player 1 — Blue</div>
+      <div class="score-val p1c" id="score1">0</div>
+      <div style="font-size:10px;color:var(--color-text-tertiary)">tags given</div>
+    </div>
+    <div id="it-banner" id="it-banner">— is IT</div>
+    <div class="score-card">
+      <div class="score-label">Player 2 — Red</div>
+      <div class="score-val p2c" id="score2">0</div>
+      <div style="font-size:10px;color:var(--color-text-tertiary)">tags given</div>
+    </div>
+  </div>
+
+  <div id="arena">
+    <div id="overlay">
+      <div id="overlay-title">Tag!</div>
+      <div id="overlay-sub">Press Start to play</div>
+    </div>
+    <canvas id="canvas"></canvas>
+  </div>
+
+  <div id="controls">
+    <div class="ctrl-group">
+      <div class="ctrl-title" style="color:#185FA5">Player 1 — Blue</div>
+      <div class="ctrl-row"><span class="key">A</span><span class="key">D</span> move &nbsp; <span class="key">W</span> jump</div>
+    </div>
+    <div style="font-size:11px;color:var(--color-text-tertiary);align-self:center">Hit bounce pads to fly!</div>
+    <div class="ctrl-group" style="align-items:flex-end">
+      <div class="ctrl-title" style="color:#993C1D">Player 2 — Red</div>
+      <div class="ctrl-row"><span class="key">←</span><span class="key">→</span> move &nbsp; <span class="key">↑</span> jump</div>
+    </div>
+  </div>
+
+  <div id="bottom">
+    <div id="timer-wrap">Time: <span id="timer">60</span>s</div>
+    <button id="start-btn">Start Game</button>
+    <div style="width:80px"></div>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const arena = document.getElementById('arena');
+const itBanner = document.getElementById('it-banner');
+const score1el = document.getElementById('score1');
+const score2el = document.getElementById('score2');
+const timerEl = document.getElementById('timer');
+const overlay = document.getElementById('overlay');
+const overlayTitle = document.getElementById('overlay-title');
+const overlaySub = document.getElementById('overlay-sub');
+const startBtn = document.getElementById('start-btn');
+
+const GRAVITY = 0.45, JUMP_V = -11, BOUNCE_V = -16, SPEED = 3.2, R = 16, GAME_SECS = 60;
+let W, H, keys = {}, raf, timerInt, state;
+
+function resize() {
+  W = arena.clientWidth; H = arena.clientHeight;
+  canvas.width = W; canvas.height = H;
+}
+
+const PLATFORMS = [
+  {x: 0.05, y: 0.72, w: 0.18, h: 0.045},
+  {x: 0.28, y: 0.55, w: 0.16, h: 0.045},
+  {x: 0.56, y: 0.45, w: 0.16, h: 0.045},
+  {x: 0.77, y: 0.65, w: 0.18, h: 0.045},
+  {x: 0.36, y: 0.30, w: 0.28, h: 0.045},
+  {x: 0.10, y: 0.42, w: 0.14, h: 0.045},
+];
+
+const BOUNCE_PADS = [
+  {x: 0.44, y: 0.96, w: 0.12},
+  {x: 0.10, y: 0.96, w: 0.10},
+  {x: 0.78, y: 0.96, w: 0.10},
+  {x: 0.30, y: 0.555, w: 0.08},
+  {x: 0.60, y: 0.455, w: 0.08},
+];
+
+function getPlatforms() {
+  return PLATFORMS.map(p => ({x: p.x*W, y: p.y*H, w: p.w*W, h: p.h*H}));
+}
+function getBouncePads() {
+  return BOUNCE_PADS.map(p => ({x: p.x*W, y: p.y*H, w: p.w*W, h: 10}));
+}
+
+function makePlayer(x, y, it) {
+  return { x, y, vx: 0, vy: 0, onGround: false, it, jumpCooldown: 0, bounceAnim: 0 };
+}
+
+function resetState() {
+  resize();
+  state = {
+    running: false,
+    p1: makePlayer(W*0.12, H*0.5, false),
+    p2: makePlayer(W*0.85, H*0.5, true),
+    it: 2,
+    score1: 0, score2: 0,
+    timeLeft: GAME_SECS, lastTag: 0,
+    bouncePadAnims: BOUNCE_PADS.map(() => 0)
+  };
+}
+
+function updateBanner() {
+  const name = state.it === 1 ? 'Player 1' : 'Player 2';
+  const col = state.it === 1 ? '#185FA5' : '#993C1D';
+  itBanner.textContent = name + ' is IT';
+  itBanner.style.color = col;
+}
+function updateScores() { score1el.textContent = state.score1; score2el.textContent = state.score2; }
+
+function applyPhysics(p, moveLeft, moveRight, doJump) {
+  const platforms = getPlatforms();
+  const bouncePads = getBouncePads();
+  const FLOOR = H - R - 2;
+
+  if (moveLeft) p.vx = -SPEED;
+  else if (moveRight) p.vx = SPEED;
+  else p.vx *= 0.72;
+
+  p.vy += GRAVITY;
+  p.x += p.vx;
+  p.y += p.vy;
+
+  p.x = Math.max(R, Math.min(W - R, p.x));
+
+  p.onGround = false;
+
+  if (p.y >= FLOOR) {
+    p.y = FLOOR; p.vy = 0; p.onGround = true;
+  }
+
+  for (const pl of platforms) {
+    const prevY = p.y - p.vy;
+    if (p.x + R > pl.x && p.x - R < pl.x + pl.w) {
+      if (prevY + R <= pl.y + 2 && p.y + R >= pl.y) {
+        p.y = pl.y - R; p.vy = 0; p.onGround = true;
+      } else if (prevY - R >= pl.y + pl.h - 2 && p.y - R <= pl.y + pl.h) {
+        p.y = pl.y + pl.h + R; p.vy = Math.abs(p.vy) * 0.3;
+      }
+    }
+  }
+
+  for (let i = 0; i < bouncePads.length; i++) {
+    const bp = bouncePads[i];
+    const prevY = p.y - p.vy;
+    if (p.x + R > bp.x && p.x - R < bp.x + bp.w) {
+      if (prevY + R <= bp.y + 6 && p.y + R >= bp.y) {
+        p.y = bp.y - R; p.vy = BOUNCE_V; p.onGround = false;
+        p.bounceAnim = 12;
+        state.bouncePadAnims[i] = 12;
+      }
+    }
+  }
+
+  if (doJump && p.onGround && p.jumpCooldown <= 0) {
+    p.vy = JUMP_V; p.onGround = false; p.jumpCooldown = 18;
+  }
+  if (p.jumpCooldown > 0) p.jumpCooldown--;
+  if (p.bounceAnim > 0) p.bounceAnim--;
+  for (let i = 0; i < state.bouncePadAnims.length; i++) { if (state.bouncePadAnims[i] > 0) state.bouncePadAnims[i]--; }
+}
+
+function checkTag() {
+  const dist = Math.hypot(state.p1.x - state.p2.x, state.p1.y - state.p2.y);
+  const now = Date.now();
+  if (dist < R * 2.2 && now - state.lastTag > 700) {
+    if (state.it === 1) { state.score1++; state.it = 2; state.p1.it = false; state.p2.it = true; }
+    else { state.score2++; state.it = 1; state.p2.it = false; state.p1.it = true; }
+    state.lastTag = now;
+    updateBanner(); updateScores();
+  }
+}
+
+function drawRoundRect(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+function isDark() {
+  return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+}
+
+function draw() {
+  const dark = isDark();
+  ctx.clearRect(0, 0, W, H);
+
+  const platforms = getPlatforms();
+  const bouncePads = getBouncePads();
+
+  ctx.fillStyle = dark ? '#3C3489' : '#EEEDFE';
+  for (const pl of platforms) {
+    drawRoundRect(pl.x, pl.y, pl.w, pl.h, 5);
+    ctx.fill();
+    ctx.strokeStyle = dark ? '#534AB7' : '#AFA9EC';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.fillStyle = dark ? '#AFA9EC' : '#7F77DD';
+    ctx.fillRect(pl.x + 6, pl.y, pl.w - 12, 3);
+    ctx.fillStyle = dark ? '#3C3489' : '#EEEDFE';
+  }
+
+  for (let i = 0; i < bouncePads.length; i++) {
+    const bp = bouncePads[i];
+    const anim = state.bouncePadAnims[i];
+    const squeeze = anim > 0 ? 1 - (anim / 12) * 0.3 : 1;
+    const stretchH = anim > 0 ? 10 + (1 - squeeze) * 6 : 10;
+    ctx.save();
+    ctx.translate(bp.x + bp.w / 2, bp.y + 5);
+    ctx.scale(1, squeeze);
+    ctx.fillStyle = dark ? '#EF9F27' : '#BA7517';
+    drawRoundRect(-bp.w/2, -stretchH/2, bp.w, stretchH, 4);
+    ctx.fill();
+    ctx.fillStyle = dark ? '#FAC775' : '#EF9F27';
+    ctx.fillRect(-bp.w/2 + 4, -2, bp.w - 8, 4);
+    ctx.restore();
+    ctx.fillStyle = dark ? '#FAC775' : '#EF9F27';
+    ctx.font = '9px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('BOUNCE', bp.x + bp.w/2, bp.y + 22);
+  }
+
+  ctx.strokeStyle = dark ? '#444441' : '#D3D1C7';
+  ctx.lineWidth = 0.5;
+  ctx.beginPath(); ctx.moveTo(0, H - 2); ctx.lineTo(W, H - 2); ctx.stroke();
+
+  function drawPlayer(p, col, ringCol, label) {
+    const isIt = (label === 'P1' && state.it === 1) || (label === 'P2' && state.it === 2);
+    const squash = p.onGround ? 1.15 : (p.vy < -4 ? 0.8 : 1);
+    const stretch = p.onGround ? 0.85 : (p.vy < -4 ? 1.25 : 1);
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    if (isIt) {
+      ctx.beginPath();
+      ctx.arc(0, 0, R + 5, 0, Math.PI * 2);
+      ctx.strokeStyle = '#EF9F27';
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+    }
+    ctx.scale(squash, stretch);
+    ctx.beginPath();
+    ctx.arc(0, 0, R, 0, Math.PI * 2);
+    ctx.fillStyle = col;
+    ctx.fill();
+    ctx.fillStyle = dark ? '#E6E6E6' : '#fff';
+    ctx.font = `500 10px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, 0, 0);
+    if (p.bounceAnim > 0) {
+      const stars = 3;
+      for (let s = 0; s < stars; s++) {
+        const angle = (s / stars) * Math.PI * 2 + (p.bounceAnim * 0.4);
+        const dist2 = R + 8 + (12 - p.bounceAnim);
+        ctx.fillStyle = 'rgba(239,159,39,0.7)';
+        ctx.beginPath();
+        ctx.arc(Math.cos(angle)*dist2, Math.sin(angle)*dist2, 3, 0, Math.PI*2);
+        ctx.fill();
+      }
+    }
+    ctx.restore();
+  }
+
+  drawPlayer(state.p1, '#378ADD', '#EF9F27', 'P1');
+  drawPlayer(state.p2, '#D85A30', '#EF9F27', 'P2');
+
+  if (!state.running && state.timeLeft === GAME_SECS) return;
+  if (state.timeLeft <= 10 && state.running) {
+    ctx.fillStyle = 'rgba(163,45,45,0.15)';
+    ctx.fillRect(0, 0, W, H);
+  }
+}
+
+function loop() {
+  if (!state.running) return;
+
+  applyPhysics(state.p1,
+    keys['a'] || keys['A'],
+    keys['d'] || keys['D'],
+    keys['w'] || keys['W']
+  );
+  applyPhysics(state.p2,
+    keys['ArrowLeft'],
+    keys['ArrowRight'],
+    keys['ArrowUp']
+  );
+
+  checkTag();
+  draw();
+  raf = requestAnimationFrame(loop);
+}
+
+function startGame() {
+  cancelAnimationFrame(raf);
+  clearInterval(timerInt);
+  resize();
+  state = {
+    running: true,
+    p1: makePlayer(W*0.12, H*0.4, false),
+    p2: makePlayer(W*0.85, H*0.4, true),
+    it: 2,
+    score1: 0, score2: 0,
+    timeLeft: GAME_SECS, lastTag: 0,
+    bouncePadAnims: BOUNCE_PADS.map(() => 0)
+  };
+  updateBanner(); updateScores();
+  overlay.style.display = 'none';
+  startBtn.textContent = 'Restart';
+  timerEl.textContent = GAME_SECS;
+  timerInt = setInterval(() => {
+    state.timeLeft--;
+    timerEl.textContent = state.timeLeft;
+    if (state.timeLeft <= 0) endGame();
+  }, 1000);
+  raf = requestAnimationFrame(loop);
+}
+
+function endGame() {
+  state.running = false;
+  clearInterval(timerInt);
+  cancelAnimationFrame(raf);
+  draw();
+  overlay.style.display = 'flex';
+  if (state.score1 > state.score2) {
+    overlayTitle.textContent = 'Player 1 Wins!';
+    overlayTitle.style.color = '#B5D4F4';
+  } else if (state.score2 > state.score1) {
+    overlayTitle.textContent = 'Player 2 Wins!';
+    overlayTitle.style.color = '#F5C4B3';
+  } else {
+    overlayTitle.textContent = "It's a Tie!";
+    overlayTitle.style.color = '#FAC775';
+  }
+  overlaySub.textContent = `P1: ${state.score1} tags  |  P2: ${state.score2} tags — Press Restart`;
+}
+
+document.addEventListener('keydown', e => {
+  keys[e.key] = true;
+  if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key)) e.preventDefault();
+});
+document.addEventListener('keyup', e => { keys[e.key] = false; });
+startBtn.addEventListener('click', startGame);
+window.addEventListener('resize', () => { resize(); draw(); });
+
+resize();
+resetState();
+draw();
+</script>
