@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>1v1 Soccer</title>
+<style>
+ @import url('https://fonts.googleapis.com/css2?family=Boogaloo&family=Russo+One&display=swap');
+
+- { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+background: #1a1a2e;
+font-family: ‘Boogaloo’, cursive;
+overflow: hidden;
+display: flex;
+align-items: center;
+justify-content: center;
+height: 100vh;
+width: 100vw;
+}
+
+#gameWrapper {
+position: relative;
+width: 900px;
+height: 560px;
+}
+
+/* MENU SCREEN */
+#menuScreen {
+position: absolute;
+inset: 0;
+background: linear-gradient(135deg, #0f3460, #16213e, #0f3460);
+border-radius: 16px;
+display: flex;
+flex-direction: column;
+align-items: center;
+justify-content: center;
+gap: 20px;
+z-index: 10;
+}
+
+.gameTitle {
+font-family: ‘Russo One’, sans-serif;
+font-size: 56px;
+color: #fff;
+text-shadow: 0 0 30px #f9c74f, 0 4px 0 #c9a227;
+letter-spacing: 2px;
+}
+
+.subtitle {
+color: #f9c74f;
+font-size: 22px;
+letter-spacing: 4px;
+margin-top: -10px;
+}
+
+.teamSelectRow {
+display: flex;
+align-items: center;
+gap: 30px;
+margin-top: 10px;
+}
+
+.teamLabel {
+color: #aaa;
+font-size: 16px;
+text-align: center;
+margin-bottom: 6px;
+}
+
+.teamBox {
+display: flex;
+flex-direction: column;
+align-items: center;
+}
+
+.flagSelect {
+display: flex;
+gap: 10px;
+}
+
+.flagBtn {
+width: 64px;
+height: 44px;
+border-radius: 8px;
+border: 3px solid transparent;
+cursor: pointer;
+font-size: 28px;
+display: flex;
+align-items: center;
+justify-content: center;
+background: rgba(255,255,255,0.1);
+transition: all 0.2s;
+}
+.flagBtn:hover { transform: scale(1.1); border-color: #f9c74f; }
+.flagBtn.selected { border-color: #f9c74f; background: rgba(249,199,79,0.2); }
+
+.vsText {
+font-family: ‘Russo One’, sans-serif;
+font-size: 40px;
+color: #e63946;
+text-shadow: 0 0 20px #e63946;
+}
+
+.settingsRow {
+display: flex;
+gap: 30px;
+align-items: center;
+}
+
+.settingBox {
+display: flex;
+flex-direction: column;
+align-items: center;
+gap: 6px;
+}
+
+.settingLabel {
+color: #aaa;
+font-size: 15px;
+}
+
+.btnGroup {
+display: flex;
+gap: 6px;
+}
+
+.optBtn {
+padding: 6px 14px;
+border-radius: 20px;
+border: 2px solid #444;
+background: rgba(255,255,255,0.05);
+color: #ccc;
+cursor: pointer;
+font-family: ‘Boogaloo’, cursive;
+font-size: 15px;
+transition: all 0.2s;
+}
+.optBtn:hover { border-color: #f9c74f; color: #f9c74f; }
+.optBtn.active { background: #f9c74f; color: #1a1a2e; border-color: #f9c74f; font-weight: bold; }
+
+.playBtn {
+padding: 14px 60px;
+background: linear-gradient(135deg, #f9c74f, #f4a261);
+border: none;
+border-radius: 50px;
+font-family: ‘Russo One’, sans-serif;
+font-size: 26px;
+color: #1a1a2e;
+cursor: pointer;
+box-shadow: 0 6px 30px rgba(249,199,79,0.5);
+transition: all 0.2s;
+margin-top: 10px;
+}
+.playBtn:hover { transform: scale(1.05); box-shadow: 0 8px 40px rgba(249,199,79,0.7); }
+
+.controls {
+display: flex;
+gap: 40px;
+color: #777;
+font-size: 14px;
+text-align: center;
+}
+.controls span { color: #f9c74f; }
+
+/* GAME CANVAS AREA */
+#gameScreen {
+position: absolute;
+inset: 0;
+display: none;
+}
+
+canvas {
+width: 900px;
+height: 560px;
+border-radius: 12px;
+display: block;
+}
+
+/* HUD */
+#hud {
+position: absolute;
+top: 0; left: 0; right: 0;
+height: 54px;
+display: flex;
+align-items: center;
+justify-content: space-between;
+padding: 0 30px;
+background: rgba(0,0,0,0.55);
+border-radius: 12px 12px 0 0;
+pointer-events: none;
+z-index: 5;
+}
+
+.scoreBlock {
+display: flex;
+align-items: center;
+gap: 12px;
+}
+
+.teamFlag { font-size: 28px; }
+
+.scoreNum {
+font-family: ‘Russo One’, sans-serif;
+font-size: 32px;
+color: #fff;
+min-width: 28px;
+text-align: center;
+}
+
+.scoreDash {
+font-family: ‘Russo One’, sans-serif;
+font-size: 28px;
+color: #555;
+}
+
+#timerDisplay {
+font-family: ‘Russo One’, sans-serif;
+font-size: 28px;
+color: #f9c74f;
+text-shadow: 0 0 10px rgba(249,199,79,0.5);
+min-width: 60px;
+text-align: center;
+}
+
+/* GOAL OVERLAY */
+#goalOverlay {
+position: absolute;
+inset: 0;
+display: none;
+align-items: center;
+justify-content: center;
+pointer-events: none;
+z-index: 8;
+}
+#goalOverlay.show { display: flex; }
+.goalText {
+font-family: ‘Russo One’, sans-serif;
+font-size: 80px;
+color: #f9c74f;
+text-shadow: 0 0 60px #f9c74f, 0 6px 0 #c9a227;
+animation: goalPop 0.4s ease-out;
+}
+@keyframes goalPop {
+0% { transform: scale(0.3) rotate(-10deg); opacity: 0; }
+70% { transform: scale(1.15) rotate(3deg); }
+100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+/* END SCREEN */
+#endScreen {
+position: absolute;
+inset: 0;
+background: rgba(0,0,0,0.85);
+display: none;
+flex-direction: column;
+align-items: center;
+justify-content: center;
+gap: 20px;
+border-radius: 16px;
+z-index: 10;
+}
+#endScreen.show { display: flex; }
+.winnerText {
+font-family: ‘Russo One’, sans-serif;
+font-size: 44px;
+color: #f9c74f;
+text-shadow: 0 0 30px #f9c74f;
+}
+.finalScore {
+font-family: ‘Russo One’, sans-serif;
+font-size: 60px;
+color: #fff;
+}
+.replayBtn {
+padding: 12px 50px;
+background: linear-gradient(135deg, #f9c74f, #f4a261);
+border: none;
+border-radius: 50px;
+font-family: ‘Russo One’, sans-serif;
+font-size: 22px;
+color: #1a1a2e;
+cursor: pointer;
+box-shadow: 0 4px 20px rgba(249,199,79,0.5);
+transition: all 0.2s;
+}
+.replayBtn:hover { transform: scale(1.05); }
+</style>
+
+</head>
+<body>
+
+<div id="gameWrapper">
+
+ <!-- MENU -->
+
+ <div id="menuScreen">
+ <div class="gameTitle">1v1 SOCCER</div>
+ <div class="subtitle"> KICK OFF </div>
+
+```
+<div class="teamSelectRow">
+ <div class="teamBox">
+ <div class="teamLabel">PLAYER 1</div>
+ <div class="flagSelect" id="p1flags">
+ <div class="flagBtn selected" data-team="eng" data-player="1"> </div>
+ <div class="flagBtn" data-team="ned" data-player="1"> </div>
+ <div class="flagBtn" data-team="bra" data-player="1"> </div>
+ <div class="flagBtn" data-team="ger" data-player="1"> </div>
+ </div>
+ </div>
+ <div class="vsText">VS</div>
+ <div class="teamBox">
+ <div class="teamLabel">PLAYER 2</div>
+ <div class="flagSelect" id="p2flags">
+ <div class="flagBtn" data-team="eng" data-player="2"> </div>
+ <div class="flagBtn" data-team="ned" data-player="2"> </div>
+ <div class="flagBtn" data-team="bra" data-player="2"> </div>
+ <div class="flagBtn selected" data-team="ger" data-player="2"> </div>
+ </div>
+ </div>
+</div>
+
+<div class="settingsRow">
+ <div class="settingBox">
+ <div class="settingLabel">DURATION</div>
+ <div class="btnGroup" id="durationBtns">
+ <button class="optBtn active" data-val="60">1 min</button>
+ <button class="optBtn" data-val="120">2 min</button>
+ <button class="optBtn" data-val="180">3 min</button>
+ <button class="optBtn" data-val="300">5 min</button>
+ </div>
+ </div>
+ <div class="settingBox">
+ <div class="settingLabel">OPPONENT</div>
+ <div class="btnGroup" id="modeBtns">
+ <button class="optBtn active" data-val="2p">2 Players</button>
+ <button class="optBtn" data-val="ai">vs AI</button>
+ </div>
+ </div>
+</div>
+
+<button class="playBtn" id="playBtn">KICK OFF!</button>
+
+<div class="controls">
+ <div>P1: <span>W</span> jump &nbsp; <span>A D</span> move</div>
+ <div>P2: <span>↑</span> jump &nbsp; <span>← →</span> move</div>
+</div>
+```
+
+ </div>
+
+ <!-- GAME -->
+
+ <div id="gameScreen">
+ <canvas id="gameCanvas" width="900" height="560"></canvas>
+ <div id="hud">
+ <div class="scoreBlock">
+ <div class="teamFlag" id="p1flag"> </div>
+ <div class="scoreNum" id="score1">0</div>
+ </div>
+ <div style="display:flex;align-items:center;gap:12px;">
+ <div class="scoreDash">—</div>
+ <div id="timerDisplay">1:00</div>
+ <div class="scoreDash">—</div>
+ </div>
+ <div class="scoreBlock">
+ <div class="scoreNum" id="score2">0</div>
+ <div class="teamFlag" id="p2flag"> </div>
+ </div>
+ </div>
+ <div id="goalOverlay"><div class="goalText"> GOAL! </div></div>
+ <div id="endScreen">
+ <div class="winnerText" id="winnerText">PLAYER 1 WINS!</div>
+ <div class="finalScore" id="finalScore">3 – 1</div>
+ <button class="replayBtn" id="replayBtn">PLAY AGAIN</button>
+ </div>
+ </div>
+
+</div>
+
+<script>
+// ─── CONFIG ───────────────────────────────────────────────
+const TEAMS = {
+ eng: { flag:' ', color:'#fff', accent:'#cf142b', name:'England' },
+ ned: { flag:' ', color:'#ff6600', accent:'#fff', name:'Netherlands' },
+ bra: { flag:' ', color:'#009c3b', accent:'#ffdf00', name:'Brazil' },
+ ger: { flag:' ', color:'#000', accent:'#dd0000', name:'Germany' }
+};
+
+const W = 900, H = 560;
+const GROUND_Y = 420;
+const GOAL_W = 20, GOAL_H = 100;
+const GOAL_Y = GROUND_Y - GOAL_H;
+const L_GOAL_X = 60;
+const R_GOAL_X = W - 60 - GOAL_W;
+
+const GRAVITY = 0.55;
+const JUMP_FORCE = -13;
+const MOVE_SPEED = 4.5;
+const BALL_FRICTION = 0.985;
+const GROUND_FRICTION = 0.82;
+const PLAYER_RADIUS = 22;
+const BALL_RADIUS = 14;
+
+// ─── STATE ────────────────────────────────────────────────
+let p1Team = 'eng', p2Team = 'ger';
+let gameDuration = 60;
+let gameMode = '2p';
+let score1 = 0, score2 = 0;
+let timeLeft = 60;
+let gameRunning = false;
+let goalCooldown = 0;
+let lastTime = 0;
+
+const keys = {};
+document.addEventListener('keydown', e => { keys[e.code] = true; e.preventDefault && ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code) && e.preventDefault(); });
+document.addEventListener('keyup', e => { keys[e.code] = false; });
+
+let p1, p2, ball;
+
+function initEntities() {
+ p1 = {
+ x: 200, y: GROUND_Y - PLAYER_RADIUS,
+ vx: 0, vy: 0,
+ onGround: true,
+ facing: 1,
+ team: p1Team,
+ kickCooldown: 0,
+ legAngle: 0,
+ legDir: 1,
+ walkTimer: 0
+ };
+ p2 = {
+ x: 700, y: GROUND_Y - PLAYER_RADIUS,
+ vx: 0, vy: 0,
+ onGround: true,
+ facing: -1,
+ team: p2Team,
+ kickCooldown: 0,
+ legAngle: 0,
+ legDir: 1,
+ walkTimer: 0
+ };
+ ball = {
+ x: W/2, y: GROUND_Y - BALL_RADIUS - 60,
+ vx: 0, vy: 0,
+ spin: 0,
+ angle: 0
+ };
+}
+
+// ─── MENU LOGIC ───────────────────────────────────────────
+document.querySelectorAll('.flagBtn').forEach(btn => {
+ btn.addEventListener('click', () => {
+ const player = btn.dataset.player;
+ const group = document.querySelectorAll(`.flagBtn[data-player="${player}"]`);
+ group.forEach(b => b.classList.remove('selected'));
+ btn.classList.add('selected');
+ if (player === '1') p1Team = btn.dataset.team;
+ else p2Team = btn.dataset.team;
+ });
+});
+
+document.querySelectorAll('#durationBtns .optBtn').forEach(btn => {
+ btn.addEventListener('click', () => {
+ document.querySelectorAll('#durationBtns .optBtn').forEach(b => b.classList.remove('active'));
+ btn.classList.add('active');
+ gameDuration = parseInt(btn.dataset.val);
+ });
+});
+
+document.querySelectorAll('#modeBtns .optBtn').forEach(btn => {
+ btn.addEventListener('click', () => {
+ document.querySelectorAll('#modeBtns .optBtn').forEach(b => b.classList.remove('active'));
+ btn.classList.add('active');
+ gameMode = btn.dataset.val;
+ });
+});
+
+document.getElementById('playBtn').addEventListener('click', startGame);
+document.getElementById('replayBtn').addEventListener('click', () => {
+ document.getElementById('endScreen').classList.remove('show');
+ startGame();
+});
+
+function startGame() {
+ score1 = 0; score2 = 0;
+ timeLeft = gameDuration;
+ document.getElementById('score1').textContent = '0';
+ document.getElementById('score2').textContent = '0';
+ document.getElementById('p1flag').textContent = TEAMS[p1Team].flag;
+ document.getElementById('p2flag').textContent = TEAMS[p2Team].flag;
+ document.getElementById('menuScreen').style.display = 'none';
+ document.getElementById('gameScreen').style.display = 'block';
+ initEntities();
+ gameRunning = true;
+ goalCooldown = 0;
+ lastTime = performance.now();
+ requestAnimationFrame(gameLoop);
+}
+
+// ─── PHYSICS ──────────────────────────────────────────────
+function updatePlayer(p, left, right, jump, isAI) {
+ if (isAI) {
+ aiControl(p);
+ } else {
+ if (left) { p.vx -= 1.2; p.facing = -1; }
+ if (right) { p.vx += 1.2; p.facing = 1; }
+ if (jump && p.onGround) { p.vy = JUMP_FORCE; p.onGround = false; }
+ }
+
+ // friction
+ p.vx *= p.onGround ? GROUND_FRICTION : 0.96;
+ p.vx = Math.max(-MOVE_SPEED, Math.min(MOVE_SPEED, p.vx));
+
+ // gravity
+ p.vy += GRAVITY;
+ p.x += p.vx;
+ p.y += p.vy;
+
+ // floor
+ if (p.y >= GROUND_Y - PLAYER_RADIUS) {
+ p.y = GROUND_Y - PLAYER_RADIUS;
+ p.vy = 0;
+ p.onGround = true;
+ } else {
+ p.onGround = false;
+ }
+
+ // walls
+ p.x = Math.max(PLAYER_RADIUS, Math.min(W - PLAYER_RADIUS, p.x));
+
+ // walk animation
+ if (Math.abs(p.vx) > 0.3 && p.onGround) {
+ p.walkTimer += Math.abs(p.vx) * 0.15;
+ p.legAngle = Math.sin(p.walkTimer) * 30;
+ } else {
+ p.legAngle *= 0.8;
+ }
+
+ if (p.kickCooldown > 0) p.kickCooldown--;
+}
+
+function aiControl(p) {
+ const bx = ball.x, by = ball.y;
+ // move toward ball
+ const dx = bx - p.x;
+ if (Math.abs(dx) > 10) {
+ p.vx += dx > 0 ? 1.0 : -1.0;
+ p.facing = dx > 0 ? 1 : -1;
+ }
+ // jump to reach airborne balls
+ if (by < GROUND_Y - 80 && p.onGround && Math.abs(dx) < 120) {
+ p.vy = JUMP_FORCE;
+ p.onGround = false;
+ }
+}
+
+function updateBall() {
+ ball.vy += GRAVITY;
+ ball.vx *= BALL_FRICTION;
+ ball.vy *= BALL_FRICTION;
+ ball.x += ball.vx;
+ ball.y += ball.vy;
+ ball.angle += ball.vx * 0.05;
+
+ // floor bounce
+ if (ball.y >= GROUND_Y - BALL_RADIUS) {
+ ball.y = GROUND_Y - BALL_RADIUS;
+ ball.vy *= -0.55;
+ ball.vx *= GROUND_FRICTION;
+ if (Math.abs(ball.vy) < 1) ball.vy = 0;
+ }
+
+ // wall bounces (not inside goal areas)
+ if (ball.x - BALL_RADIUS <= L_GOAL_X + GOAL_W && ball.y > GOAL_Y) {
+ // near left goal
+ } else if (ball.x - BALL_RADIUS <= BALL_RADIUS + 5) {
+ ball.x = BALL_RADIUS + 5;
+ ball.vx = Math.abs(ball.vx) * 0.7;
+ }
+
+ if (ball.x + BALL_RADIUS >= R_GOAL_X && ball.y > GOAL_Y) {
+ // near right goal
+ } else if (ball.x + BALL_RADIUS >= W - BALL_RADIUS - 5) {
+ ball.x = W - BALL_RADIUS - 5;
+ ball.vx = -Math.abs(ball.vx) * 0.7;
+ }
+
+ // ceiling
+ if (ball.y - BALL_RADIUS <= 54) {
+ ball.y = 54 + BALL_RADIUS;
+ ball.vy = Math.abs(ball.vy) * 0.6;
+ }
+}
+
+function checkGoal() {
+ if (goalCooldown > 0) return;
+ // Left goal: ball fully inside left goal
+ if (ball.x - BALL_RADIUS <= L_GOAL_X + GOAL_W && ball.x >= L_GOAL_X &&
+ ball.y + BALL_RADIUS >= GOAL_Y && ball.y <= GROUND_Y) {
+ score2++;
+ document.getElementById('score2').textContent = score2;
+ triggerGoal();
+ return;
+ }
+ // Right goal
+ if (ball.x + BALL_RADIUS >= R_GOAL_X && ball.x <= R_GOAL_X + GOAL_W &&
+ ball.y + BALL_RADIUS >= GOAL_Y && ball.y <= GROUND_Y) {
+ score1++;
+ document.getElementById('score1').textContent = score1;
+ triggerGoal();
+ }
+}
+
+function triggerGoal() {
+ goalCooldown = 180;
+ const overlay = document.getElementById('goalOverlay');
+ overlay.classList.add('show');
+ setTimeout(() => {
+ overlay.classList.remove('show');
+ resetPositions();
+ }, 1800);
+}
+
+function resetPositions() {
+ p1.x = 220; p1.y = GROUND_Y - PLAYER_RADIUS; p1.vx = 0; p1.vy = 0;
+ p2.x = 680; p2.y = GROUND_Y - PLAYER_RADIUS; p2.vx = 0; p2.vy = 0;
+ ball.x = W/2; ball.y = GROUND_Y - BALL_RADIUS - 80; ball.vx = 0; ball.vy = 0;
+}
+
+function playerBallCollision(p) {
+ const dx = ball.x - p.x;
+ const dy = ball.y - p.y;
+ const dist = Math.sqrt(dx*dx + dy*dy);
+ const minDist = PLAYER_RADIUS + BALL_RADIUS;
+
+ if (dist < minDist && dist > 0) {
+ const nx = dx / dist;
+ const ny = dy / dist;
+ const overlap = minDist - dist;
+ ball.x += nx * overlap;
+ ball.y += ny * overlap;
+
+ const relVx = ball.vx - p.vx;
+ const relVy = ball.vy - p.vy;
+ const dot = relVx * nx + relVy * ny;
+
+ if (dot < 0) {
+ const impulse = -1.6 * dot;
+ ball.vx += nx * impulse;
+ ball.vy += ny * impulse;
+ ball.vx += p.vx * 0.5;
+ ball.vy += p.vy * 0.3;
+ }
+ }
+}
+
+// ─── RENDERING ────────────────────────────────────────────
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+function drawField() {
+ // Sky gradient
+ const sky = ctx.createLinearGradient(0, 54, 0, GROUND_Y);
+ sky.addColorStop(0, '#87CEEB');
+ sky.addColorStop(1, '#b8e8ff');
+ ctx.fillStyle = sky;
+ ctx.fillRect(0, 54, W, GROUND_Y - 54);
+
+ // Crowd background
+ ctx.fillStyle = 'rgba(0,0,0,0.15)';
+ ctx.fillRect(0, 54, W, 60);
+ for (let i = 0; i < 80; i++) {
+ const cx = (i * 23) % W;
+ const cy = 58 + (i % 4) * 14;
+ ctx.fillStyle = ['#e63946','#2a9d8f','#e9c46a','#264653','#f4a261'][i%5];
+ ctx.beginPath();
+ ctx.arc(cx, cy, 5, 0, Math.PI*2);
+ ctx.fill();
+ }
+
+ // Grass
+ const grass = ctx.createLinearGradient(0, GROUND_Y, 0, H);
+ grass.addColorStop(0, '#4caf50');
+ grass.addColorStop(0.3, '#388e3c');
+ grass.addColorStop(1, '#2e7d32');
+ ctx.fillStyle = grass;
+ ctx.fillRect(0, GROUND_Y, W, H - GROUND_Y);
+
+ // Grass stripes
+ for (let i = 0; i < 9; i++) {
+ ctx.fillStyle = i%2===0 ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.04)';
+ ctx.fillRect(i * (W/9), GROUND_Y, W/9, H - GROUND_Y);
+ }
+
+ // Ground line
+ ctx.fillStyle = '#fff';
+ ctx.fillRect(0, GROUND_Y, W, 3);
+
+ // Center line
+ ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+ ctx.lineWidth = 2;
+ ctx.setLineDash([10, 6]);
+ ctx.beginPath();
+ ctx.moveTo(W/2, GROUND_Y);
+ ctx.lineTo(W/2, H);
+ ctx.stroke();
+ ctx.setLineDash([]);
+
+ // Center circle
+ ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+ ctx.lineWidth = 2;
+ ctx.beginPath();
+ ctx.arc(W/2, GROUND_Y + 40, 50, 0, Math.PI);
+ ctx.stroke();
+
+ // Left Goal
+ ctx.fillStyle = '#fff';
+ ctx.fillRect(L_GOAL_X, GOAL_Y, GOAL_W, GOAL_H);
+ ctx.strokeStyle = '#ddd';
+ ctx.lineWidth = 2;
+ ctx.strokeRect(L_GOAL_X, GOAL_Y, GOAL_W, GOAL_H);
+ // goal net lines
+ ctx.strokeStyle = 'rgba(200,200,200,0.5)';
+ ctx.lineWidth = 1;
+ for (let i = 0; i < 5; i++) {
+ ctx.beginPath();
+ ctx.moveTo(L_GOAL_X, GOAL_Y + i * (GOAL_H/4));
+ ctx.lineTo(L_GOAL_X + GOAL_W, GOAL_Y + i * (GOAL_H/4));
+ ctx.stroke();
+ }
+
+ // Right Goal
+ ctx.fillStyle = '#fff';
+ ctx.fillRect(R_GOAL_X, GOAL_Y, GOAL_W, GOAL_H);
+ ctx.strokeStyle = '#ddd';
+ ctx.lineWidth = 2;
+ ctx.strokeRect(R_GOAL_X, GOAL_Y, GOAL_W, GOAL_H);
+ ctx.strokeStyle = 'rgba(200,200,200,0.5)';
+ ctx.lineWidth = 1;
+ for (let i = 0; i < 5; i++) {
+ ctx.beginPath();
+ ctx.moveTo(R_GOAL_X, GOAL_Y + i * (GOAL_H/4));
+ ctx.lineTo(R_GOAL_X + GOAL_W, GOAL_Y + i * (GOAL_H/4));
+ ctx.stroke();
+ }
+}
+
+function drawPlayer(p) {
+ const t = TEAMS[p.team];
+ ctx.save();
+ ctx.translate(p.x, p.y);
+
+ const shadow = ctx.createRadialGradient(0, PLAYER_RADIUS, 0, 0, PLAYER_RADIUS, PLAYER_RADIUS);
+ shadow.addColorStop(0, 'rgba(0,0,0,0.3)');
+ shadow.addColorStop(1, 'rgba(0,0,0,0)');
+ ctx.fillStyle = shadow;
+ ctx.beginPath();
+ ctx.ellipse(0, PLAYER_RADIUS, PLAYER_RADIUS, 6, 0, 0, Math.PI*2);
+ ctx.fill();
+
+ // Legs
+ ctx.save();
+ const legColor = '#333';
+ // Back leg
+ ctx.save();
+ ctx.rotate((-p.legAngle * p.facing) * Math.PI / 180);
+ ctx.fillStyle = legColor;
+ ctx.fillRect(-5, 8, 9, 18);
+ // shoe
+ ctx.fillStyle = p.facing > 0 ? '#222' : '#444';
+ ctx.beginPath();
+ ctx.ellipse(p.facing > 0 ? 6 : -4, 26, 8, 5, 0.3 * p.facing, 0, Math.PI*2);
+ ctx.fill();
+ ctx.restore();
+
+ // Front leg
+ ctx.save();
+ ctx.rotate((p.legAngle * p.facing) * Math.PI / 180);
+ ctx.fillStyle = legColor;
+ ctx.fillRect(-4, 8, 9, 18);
+ ctx.fillStyle = p.facing > 0 ? '#444' : '#222';
+ ctx.beginPath();
+ ctx.ellipse(p.facing > 0 ? 6 : -4, 26, 8, 5, 0.3 * p.facing, 0, Math.PI*2);
+ ctx.fill();
+ ctx.restore();
+ ctx.restore();
+
+ // Body / shirt
+ ctx.fillStyle = t.color;
+ ctx.strokeStyle = t.accent;
+ ctx.lineWidth = 2;
+ ctx.beginPath();
+ ctx.roundRect(-14, -8, 28, 24, 6);
+ ctx.fill();
+ ctx.stroke();
+
+ // Shirt number or stripe
+ ctx.fillStyle = t.accent;
+ ctx.fillRect(-4, -4, 8, 3);
+
+ // Head
+ ctx.fillStyle = '#f5c89a';
+ ctx.strokeStyle = '#e8a87c';
+ ctx.lineWidth = 2;
+ ctx.beginPath();
+ ctx.arc(0, -18, 14, 0, Math.PI*2);
+ ctx.fill();
+ ctx.stroke();
+
+ // Hair
+ ctx.fillStyle = ['#4a2c0a','#222','#8B4513','#1a1a1a'][['eng','ned','bra','ger'].indexOf(p.team)] || '#333';
+ ctx.beginPath();
+ ctx.arc(0, -25, 11, Math.PI, 0);
+ ctx.fill();
+
+ // Eyes
+ const eyeX = p.facing * 4;
+ ctx.fillStyle = '#333';
+ ctx.beginPath();
+ ctx.arc(eyeX, -18, 2.5, 0, Math.PI*2);
+ ctx.fill();
+
+ // Mouth (smile)
+ ctx.strokeStyle = '#a0522d';
+ ctx.lineWidth = 1.5;
+ ctx.beginPath();
+ ctx.arc(eyeX/2, -14, 4, 0.2, Math.PI - 0.2);
+ ctx.stroke();
+
+ ctx.restore();
+}
+
+function drawBall() {
+ ctx.save();
+ ctx.translate(ball.x, ball.y);
+
+ // Shadow
+ ctx.fillStyle = 'rgba(0,0,0,0.2)';
+ ctx.beginPath();
+ ctx.ellipse(0, GROUND_Y - ball.y + BALL_RADIUS, BALL_RADIUS * 0.8, 4, 0, 0, Math.PI*2);
+ ctx.fill();
+
+ ctx.rotate(ball.angle);
+
+ // Ball
+ const grad = ctx.createRadialGradient(-4, -4, 1, 0, 0, BALL_RADIUS);
+ grad.addColorStop(0, '#fff');
+ grad.addColorStop(0.4, '#f0f0f0');
+ grad.addColorStop(1, '#ccc');
+ ctx.fillStyle = grad;
+ ctx.beginPath();
+ ctx.arc(0, 0, BALL_RADIUS, 0, Math.PI*2);
+ ctx.fill();
+
+ // Soccer pattern (hexagons approximation)
+ ctx.fillStyle = '#333';
+ ctx.beginPath();
+ ctx.arc(0, 0, 5, 0, Math.PI*2);
+ ctx.fill();
+ const spots = [[0,-9],[8,4],[-8,4],[5,-7],[-5,-7],[9,1],[-9,1]];
+ spots.forEach(([sx,sy]) => {
+ if (sx*sx+sy*sy <= BALL_RADIUS*BALL_RADIUS*0.6) {
+ ctx.fillStyle = '#333';
+ ctx.beginPath();
+ ctx.arc(sx, sy, 3, 0, Math.PI*2);
+ ctx.fill();
+ }
+ });
+
+ ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+ ctx.lineWidth = 1;
+ ctx.beginPath();
+ ctx.arc(0, 0, BALL_RADIUS, 0, Math.PI*2);
+ ctx.stroke();
+
+ ctx.restore();
+}
+
+// ─── TIMER ────────────────────────────────────────────────
+let timerInterval = null;
+
+function startTimer() {
+ clearInterval(timerInterval);
+ timerInterval = setInterval(() => {
+ if (!gameRunning) return;
+ if (goalCooldown > 0) return;
+ timeLeft--;
+ const mins = Math.floor(timeLeft / 60);
+ const secs = timeLeft % 60;
+ document.getElementById('timerDisplay').textContent = `${mins}:${secs.toString().padStart(2,'0')}`;
+ if (timeLeft <= 0) endGame();
+ }, 1000);
+}
+
+function endGame() {
+ gameRunning = false;
+ clearInterval(timerInterval);
+ const end = document.getElementById('endScreen');
+ const winner = document.getElementById('winnerText');
+ const finalScore = document.getElementById('finalScore');
+ finalScore.textContent = `${score1} – ${score2}`;
+ if (score1 > score2) winner.textContent = `${TEAMS[p1Team].flag} PLAYER 1 WINS!`;
+ else if (score2 > score1) winner.textContent = `${TEAMS[p2Team].flag} PLAYER 2 WINS!`;
+ else winner.textContent = ' IT\'S A DRAW!';
+ end.classList.add('show');
+}
+
+// ─── MAIN LOOP ────────────────────────────────────────────
+function gameLoop(timestamp) {
+ if (!gameRunning) return;
+
+ const dt = Math.min((timestamp - lastTime) / 16.67, 3);
+ lastTime = timestamp;
+
+ ctx.clearRect(0, 0, W, H);
+ drawField();
+
+ if (goalCooldown > 0) {
+ goalCooldown--;
+ drawPlayer(p1);
+ drawPlayer(p2);
+ drawBall();
+ requestAnimationFrame(gameLoop);
+ return;
+ }
+
+ // Input
+ const left1 = keys['KeyA'] || keys['ArrowLeft'] && false; // p1 only WASD
+ const right1 = keys['KeyD'];
+ const jump1 = keys['KeyW'] || keys['Space'];
+ const _left1 = keys['KeyA'];
+ const _right1 = keys['KeyD'];
+
+ const left2 = keys['ArrowLeft'];
+ const right2 = keys['ArrowRight'];
+ const jump2 = keys['ArrowUp'];
+
+ updatePlayer(p1, _left1, _right1, jump1, false);
+ updatePlayer(p2, left2, right2, jump2, gameMode === 'ai');
+ updateBall();
+ playerBallCollision(p1);
+ playerBallCollision(p2);
+ checkGoal();
+
+ drawPlayer(p1);
+ drawPlayer(p2);
+ drawBall();
+
+ requestAnimationFrame(gameLoop);
+}
+
+// Start timer when game starts
+document.getElementById('playBtn').addEventListener('click', () => {
+ setTimeout(startTimer, 100);
+});
+document.getElementById('replayBtn').addEventListener('click', () => {
+ setTimeout(startTimer, 100);
+});
+
+</script>
+
+</body>
+</html> 
