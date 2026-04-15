@@ -242,7 +242,7 @@
       bottom: 0;
       left: 0;
       width: 100%;
-      height: 6px;
+      height: 60px;
       z-index: 9;
     }
 
@@ -630,6 +630,10 @@
       background: linear-gradient(145deg, rgba(255, 217, 61, 0.1), transparent);
     }
 
+    .drawer-app[data-game="basketball"]::before {
+      background: linear-gradient(145deg, rgba(255, 140, 50, 0.1), transparent);
+    }
+
     .drawer-app[data-game="coming"]::before {
       background: linear-gradient(145deg, rgba(124, 92, 252, 0.08), transparent);
     }
@@ -661,6 +665,10 @@
 
     .drawer-app-icon.icon-tag {
       background: linear-gradient(135deg, #ffd93d, #ffa502);
+    }
+
+    .drawer-app-icon.icon-basketball {
+      background: linear-gradient(135deg, #ff8c32, #e65100);
     }
 
     .drawer-app-icon.icon-coming {
@@ -838,6 +846,11 @@
           <div class="drawer-app-name">Tag</div>
         </a>
 
+        <a href="basketrandom.html" class="drawer-app" data-game="basketball" id="appBasketball">
+          <div class="drawer-app-icon icon-basketball">🏀</div>
+          <div class="drawer-app-name">Basket Random</div>
+        </a>
+
         <div class="drawer-app disabled" data-game="coming" id="appComing1">
           <div class="drawer-app-icon icon-coming">🧩</div>
           <div class="drawer-app-name">Puzzle</div>
@@ -869,7 +882,7 @@
     <div class="drawer-footer">
       <div class="drawer-footer-text">
         <span class="drawer-footer-dot"></span>
-        2 games available
+        3 games available
       </div>
       <div class="drawer-footer-text">Game Hub v1.0</div>
     </div>
@@ -902,6 +915,10 @@
       <a href="tag.html" class="taskbar-icon pinned" id="iconTag" aria-label="Tag game">
         <span class="icon-emoji">🏃</span>
         <span class="tooltip">Tag</span>
+      </a>
+      <a href="basketrandom.html" class="taskbar-icon pinned" id="iconBasketball" aria-label="Basket Random">
+        <span class="icon-emoji">🏀</span>
+        <span class="tooltip">Basket Random</span>
       </a>
       <div class="taskbar-divider"></div>
       <div class="taskbar-icon" style="opacity: 0.35; cursor: default;" aria-label="More games coming soon">
